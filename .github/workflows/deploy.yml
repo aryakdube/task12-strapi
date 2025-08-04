@@ -62,7 +62,7 @@ jobs:
           echo "  - TargetService:" >> appspec.yaml
           echo "      Type: AWS::ECS::Service" >> appspec.yaml
           echo "      Properties:" >> appspec.yaml
-          echo "        TaskDefinition: $TASK_DEF_ARN" >> appspec.yaml
+          echo "        TaskDefinition: ${{ env.TASK_DEF_ARN }}" >> appspec.yaml
           echo "        LoadBalancerInfo:" >> appspec.yaml
           echo "          ContainerName: $CONTAINER_NAME" >> appspec.yaml
           echo "          ContainerPort: $CONTAINER_PORT" >> appspec.yaml
