@@ -8,7 +8,7 @@ env:
   AWS_REGION: us-east-2
   AWS_ACCOUNT_ID: 607700977843
   ECR_REPO: aryak-strapi-app
-  IMAGE_TAG: ${{ github.sha }}
+  IMAGE_TAG: latest
   CLUSTER_NAME: aryak-strapi-cluster
   SERVICE_NAME: aryak-strapi-service
   TASK_DEF_NAME: aryak-strapi-task
