@@ -2,7 +2,7 @@ provider "aws" {
   region = "us-east-2"
 }
 
-# Use default VP
+# Use default VPC
 data "aws_vpc" "default" {
   default = true
 }
