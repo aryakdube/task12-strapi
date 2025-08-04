@@ -58,17 +58,15 @@ jobs:
 
       - name: Create appspec.yaml
         run: |
-          cat > appspec.yaml <<EOF
-version: 1
-Resources:
-  - TargetService:
-      Type: AWS::ECS::Service
-      Properties:
-        TaskDefinition: ${{ env.TASK_DEF_ARN }}
-        LoadBalancerInfo:
-          ContainerName: $CONTAINER_NAME
-          ContainerPort: $CONTAINER_PORT
-EOF
+          echo "version: 1" > appspec.yaml
+          echo "Resources:" >> appspec.yaml
+          echo "  - TargetService:" >> appspec.yaml
+          echo "      Type: AWS::ECS::Service" >> appspec.yaml
+          echo "      Properties:" >> appspec.yaml
+          echo "        TaskDefinition: $TASK_DEF_ARN" >> appspec.yaml
+          echo "        LoadBalancerInfo:" >> appspec.yaml
+          echo "          ContainerName: $CONTAINER_NAME" >> appspec.yaml
+          echo "          ContainerPort: $CONTAINER_PORT" >> appspec.yaml
 
       - name: Deploy to ECS via CodeDeploy
         run: |
@@ -79,4 +77,5 @@ EOF
             --deployment-config-name CodeDeployDefault.ECSCanary10Percent5Minutes \
             --region $AWS_REGION \
             --description "GitHub Actions Deployment - $IMAGE_TAG" \
-            --revision revisionType=AppSpecContent,appSpecContent="{content:$CONTENT_BASE64}"
+            --revision "revisionType=AppSpecContent,appSpecContent={content=$CONTENT_BASE64}"
+
