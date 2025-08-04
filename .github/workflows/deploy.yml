@@ -8,7 +8,7 @@ env:
   AWS_REGION: us-east-2
   AWS_ACCOUNT_ID: 607700977843
   ECR_REPO: aryak-strapi-app
-  IMAGE_TAG: latest
+  IMAGE_TAG: ${{ github.sha }}
   CLUSTER_NAME: aryak-strapi-cluster
   SERVICE_NAME: aryak-strapi-service
   TASK_DEF_NAME: aryak-strapi-task
@@ -35,7 +35,8 @@ jobs:
 
       - name: Log in to Amazon ECR
         run: |
-          aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com
+          aws ecr get-login-password --region $AWS_REGION | \
+          docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com
 
       - name: Build and push Docker image
         run: |
@@ -46,8 +47,8 @@ jobs:
         run: |
           aws ecs describe-task-definition --task-definition $TASK_DEF_NAME > task-def.json
           cat task-def.json | jq --arg IMAGE "$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPO:$IMAGE_TAG" \
-            '.taskDefinition.containerDefinitions[0].image = $IMAGE |
-             { family: .taskDefinition.family, containerDefinitions: .taskDefinition.containerDefinitions, executionRoleArn: .taskDefinition.executionRoleArn, networkMode: .taskDefinition.networkMode, requiresCompatibilities: .taskDefinition.requiresCompatibilities, cpu: .taskDefinition.cpu, memory: .taskDefinition.memory }' > new-task-def.json
+            '.taskDefinition.containerDefinitions[0].image = $IMAGE | 
+             {family: .taskDefinition.family, containerDefinitions: .taskDefinition.containerDefinitions, executionRoleArn: .taskDefinition.executionRoleArn, networkMode: .taskDefinition.networkMode, requiresCompatibilities: .taskDefinition.requiresCompatibilities, cpu: .taskDefinition.cpu, memory: .taskDefinition.memory}' > new-task-def.json
 
       - name: Register new task definition
         id: register-task
@@ -55,26 +56,34 @@ jobs:
           TASK_DEF_ARN=$(aws ecs register-task-definition --cli-input-json file://new-task-def.json --query 'taskDefinition.taskDefinitionArn' --output text)
           echo "TASK_DEF_ARN=$TASK_DEF_ARN" >> $GITHUB_ENV
 
-      - name: Create appspec.yaml
+      - name: Create appspec.json without EOF
         run: |
-          echo "version: 1" > appspec.yaml
-          echo "Resources:" >> appspec.yaml
-          echo "  - TargetService:" >> appspec.yaml
-          echo "      Type: AWS::ECS::Service" >> appspec.yaml
-          echo "      Properties:" >> appspec.yaml
-          echo "        TaskDefinition: ${{ env.TASK_DEF_ARN }}" >> appspec.yaml
-          echo "        LoadBalancerInfo:" >> appspec.yaml
-          echo "          ContainerName: $CONTAINER_NAME" >> appspec.yaml
-          echo "          ContainerPort: $CONTAINER_PORT" >> appspec.yaml
+          echo "{
+            \"version\": 1,
+            \"Resources\": [
+              {
+                \"TargetService\": {
+                  \"Type\": \"AWS::ECS::Service\",
+                  \"Properties\": {
+                    \"TaskDefinition\": \"$TASK_DEF_ARN\",
+                    \"LoadBalancerInfo\": {
+                      \"ContainerName\": \"$CONTAINER_NAME\",
+                      \"ContainerPort\": $CONTAINER_PORT
+                    }
+                  }
+                }
+              }
+            ]
+          }" > appspec.json
 
       - name: Deploy to ECS via CodeDeploy
         run: |
-          CONTENT_BASE64=$(base64 appspec.yaml | tr -d '\n')
+          CONTENT_BASE64=$(base64 appspec.json | tr -d '\n')
           aws deploy create-deployment \
             --application-name $CODEDEPLOY_APP \
             --deployment-group-name $DEPLOYMENT_GROUP \
             --deployment-config-name CodeDeployDefault.ECSCanary10Percent5Minutes \
             --region $AWS_REGION \
             --description "GitHub Actions Deployment - $IMAGE_TAG" \
-            --revision revisionType=AppSpecContent,appSpecContent="{content=$CONTENT_BASE64}"
+            --revision "revisionType=AppSpecContent,appSpecContent={content=$CONTENT_BASE64}"
 
